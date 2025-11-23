@@ -1,0 +1,10 @@
+{:university "Kafr Elshiekh University"
+ :grade-scale {:A+ 4 
+               :A 3.7 
+               :B+ 3.3 
+               :B 3 
+               :C+ 2.7 
+               :C 2.4 
+               :D+ 2 
+               :D 1.7 
+               :F 0}}
