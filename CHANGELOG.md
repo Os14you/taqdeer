@@ -11,4 +11,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Program basic functionality `sem-gpa()` which for calculating gpa for one semester.
+- Program basic functionalities `sem-gpa` which for calculating gpa for one semester, and `cumulative-gpa`.
+- Simplify the work with `config.edn` file that has the courses grades to be evaluated.
