@@ -8,26 +8,32 @@ This document explains the core concepts, data structures, and mathematical mode
 
 The core problem with standard GPA calculators is that they often obscure the relationship between a **Letter Grade** (human-readable representation) and **Quality Points** (computational representation).
 
-Taqdeer bridges this gap by separating the data (Student Courses) from the evaluation logic (Grade Map). This separation allows the system to be adaptable to different grading scales without altering the core calculation engine.
+Taqdeer bridges this gap by separating the data (Student Courses) from the evaluation logic (Grade Map). This separation allows the system to be adaptable to different grading scales (via `config.edn`) without altering the core calculation engine.
 
-## Mathematical Model
+## Mathematical Models
 
-Taqdeer calculates the **Semester GPA (SGPA)** using the standard weighted mean formula. The weight is determined by the credit hours of the course.
+### Semester GPA (SGPA)
+Taqdeer calculates the SGPA using the standard weighted mean formula. The weight is determined by the credit hours of the course.
 
 $$\text{GPA} = \frac{ \sum (\text{Quality Points} \times \text{Credit Hours}) }{ \sum \text{Total Credit Hours} }$$
 
 Where:
 
-- **Quality Points**: The numerical value assigned to a letter grade (e.g., A+ = 4.0).
+- **Quality Points**: The numerical value assigned to a letter grade (e.g., A+ = 4.0) defined in the configuration.
 - **Credit Hours**: The weight or "size" of the course.
+
+### Cumulative GPA (CGPA)
+Currently, the Cumulative GPA is modeled as the arithmetic mean of the provided semester GPAs.
+
+$$\text{CGPA} = \frac{ \sum \text{Semester GPAs} }{ \text{Count of Semesters} }$$
 
 ## Data Structures
 
 To use Taqdeer effectively, it is helpful to understand how it views data.
 
-### 1\. The Grade Map (`grade-map`)
+### 1\. The Grade Map (`grade-scale`)
 
-This is the immutable "truth" source for the system. It acts as a lookup table that converts keywords into floating-point numbers.
+This is the "truth" source for the system, loaded dynamically from `config.edn`. It acts as a lookup table that converts keywords into floating-point numbers.
 
 | Key | Grade | Points |
 | :--- | :--- | :--- |
@@ -46,39 +52,32 @@ Courses are stored as a map of maps. The outer key acts as the unique identifier
 {:COURSE_CODE {:grade "String" :hours Integer}}
 ```
 
-**Example Data:**
-
-```clojure
-{:AI01 {:grade "A"  :hours 2}
- :CS02 {:grade "C+" :hours 3}}
-```
-
 ## Logic Flow
 
 When the `sem-gpa` function processes a semester:
 
-1. **Normalization**: It extracts the values from the course map, ignoring the keys (course codes).
-2. **Transformation**: It converts the string input (`"A"`) into a keyword (`:A`) to query the Grade Map.
-3. **Aggregation**: It performs two simultaneous reductions:
-   - Accumulating total weighted points.
-   - Accumulating total credit hours.
-4. **Calculation**: It divides the points by hours to return a double-precision GPA.
+- **Configuration Load:** The system injects the grade-scale from the configuration file.
+- **Normalization:** It extracts the values from the course map.
+- **Transformation:** It converts the string input (`"A"`) into a keyword (`:A`) to query the Grade Scale.
+- **Aggregation:** It accumulates total weighted points and total credit hours.
+- **Calculation:** It divides the points by hours to return a double-precision GPA.
 
 ### Implementation Reference
 
-The core logic is encapsulated functionally to ensure no global side effects occur during calculation.
+The core logic is encapsulated functionally. Note that sem-gpa now requires the grade-scale as an argument to maintain purity.
 
 ```clojure
 (defn sem-gpa 
-  [sem-courses]
+  "Calculate one semester GPA"
+  [sem-courses grade-scale]
   (let [total-points (->> sem-courses
                           (vals)
                           (map (fn [{:keys [grade hours]}]
-                                 (* hours (get grade-map (keyword grade)))))
+                                 (* hours (grade->points grade grade-scale))))
                           (reduce +))
         total-hours (->> sem-courses
                          (vals)
                          (map (fn [{:keys [hours]}] hours))
                          (reduce +))]
-    (/ total-points total-hours)))
+    (double (/ total-points total-hours))))
 ```
